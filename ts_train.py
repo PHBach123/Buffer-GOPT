@@ -190,9 +190,9 @@ def train(args):
             update_interval=args.log_interval
         )
         # backup the config file, os.path.join(,)
-        shutil.copy(args.config, log_path) # config file
-        shutil.copy("/kaggle/input/gopt-multibin/GOPT/masked_ppo.py", log_path) 
-        shutil.copy("/kaggle/input/gopt-multibin/GOPT/mycollector.py", log_path)  
+        shutil.copy(args.config, log_path)  # config file
+        shutil.copy("model.py", log_path)  # network
+        shutil.copy("arguments.py", log_path)  # network 
     else:
         logger = LazyLogger()
 
