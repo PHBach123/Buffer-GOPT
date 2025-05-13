@@ -178,8 +178,6 @@ def train(args):
     else:
         raise NotImplementedError
 
-    print(args.train.algo)
-
     log_path = './logs/' + time_str
     is_debug = True if sys.gettrace() else False
     if not is_debug:
