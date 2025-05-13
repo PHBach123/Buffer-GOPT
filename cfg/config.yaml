@@ -9,19 +9,19 @@ env:
   scheme: EMS                  # the scheme of generating candidate map: heightmap, EP, FC
   rot: True
   box_type: random              # random, cut
-  container_size: [30, 30, 30]
-  step: 1          
+  container_size: [10, 10, 10]
+  step:          
   k_placement: 80             # number of candidate 
   k_buffer: 3
-  num_bins: 3
+  num_bins: 1
 
 train:
   algo: PPO
   clip_param: 0.3
-  num_processes: 32    # the number of subprogresses, if debug, set to 1
+  num_processes: 128    # the number of subprogresses, if debug, set to 1
   num_steps: 5
-  epoch: 63
-  last_epoch: 200  
+  epoch: 1000
+  last_epoch: 200 
   batch_size: 128  
   step_per_epoch: 40000        # 2**15
   repeat_per_collect: 1
