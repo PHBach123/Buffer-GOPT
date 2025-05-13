@@ -7,7 +7,7 @@
 
 ```bash
 git clone https://github.com/PHBach123/Buffer-GOPT.git
-cd GOPT
+cd Buffer-GOPT
 
 conda create -n GOPT python=3.9
 conda activate GOPT
