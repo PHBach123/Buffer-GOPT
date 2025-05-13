@@ -1,13 +1,11 @@
 <h2 align="center">
   <b>Buffer-GOPT</b>
 
-<b><i>RA-L 2024 (Accepted)</i></b>
-
 </h2>
 ## Installation
 
-```
-git clone https://github.com/Xiong5Heng/GOPT.git
+```bash
+git clone https://github.com/PHBach123/Buffer-GOPT.git
 cd GOPT
 
 conda create -n GOPT python=3.9
