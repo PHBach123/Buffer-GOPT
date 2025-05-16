@@ -120,8 +120,6 @@ if __name__ == '__main__':
 
     test(args)
 
-    # RL generalize đuọc
-
     # for i in range(6):
     #     for j in range(6):
     #         args.env.k_buffer = i + 1
