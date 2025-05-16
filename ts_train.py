@@ -80,7 +80,7 @@ def build_net(args, device):
         dropout=args.model.dropout,
         device=device,
         place_gen=args.env.scheme,
-        num_bins=args.env.num_bins  # Số thùng cố định
+        num_bins=args.env.num_bins 
     )
 
     actor = model.ActorHead(
@@ -94,7 +94,7 @@ def build_net(args, device):
         k_placement=args.env.k_placement,
         preprocess_net=feature_net,
         embed_size=args.model.embed_dim,
-        num_bins=args.env.num_bins,  # Số thùng cố định
+        num_bins=args.env.num_bins,  
         padding_mask=args.model.padding_mask,
         device=device
     ).to(device)
