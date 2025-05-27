@@ -47,6 +47,27 @@ class PackingEnv(gym.Env):
         self.box_creator = box_creator
         self.test = load_test_data
 
+        # # Generator for train/test data
+        # if not load_test_data:
+        #     assert item_set is not None
+        #     if data_type == "random":
+        #         print(f"using items generated randomly")
+        #         self.box_creator = RandomBoxCreator(item_set)  
+        #     if data_type == "cut":
+        #         print(f"using items generated through cutting method")
+        #         low = list(item_set[0])
+        #         up = list(item_set[-1])
+        #         low.extend(up)
+        #         self.box_creator = CuttingBoxCreator(container_size, low, self.can_rotate)
+        #         print(f"box_creator: {self.box_creator.box_list}")
+        #     assert isinstance(self.box_creator, BoxCreator)
+        # if load_test_data:
+        #     print(f"use box dataset: {data_name}")
+        #     self.box_creator = LoadBoxCreator(data_name)
+
+        # self.test = load_test_data
+
+
         # for rendering
         if is_render:
             self.renderer = VTKRender(container_size, auto_render=not is_hold_on)
@@ -86,6 +107,7 @@ class PackingEnv(gym.Env):
         placements, mask = self.get_possible_position(tmp)
 
         self.candidates = np.zeros_like(self.candidates)
+
         if len(placements) != 0:
             # print("candidates:")
             # for c in placements:
@@ -123,7 +145,7 @@ class PackingEnv(gym.Env):
             candidate action mask, i.e., the position where the current item should be placed
         """
         if self.action_scheme == "heightmap":
-            candidates = self.container.candidate_from_heightmap(next_box, self.k_placement)
+            candidates, mask = self.container.candidate_from_heightmap(next_box, self.k_placement)
         elif self.action_scheme == "EP":
             candidates, mask = self.container.candidate_from_EP(next_box, self.k_placement)
         elif self.action_scheme == "EMS":
