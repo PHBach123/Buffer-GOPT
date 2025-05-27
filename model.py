@@ -87,6 +87,8 @@ class ActorHead(nn.Module):
         self,
         preprocess_net: nn.Module,
         embed_size: int,
+        num_bins: int = 3,
+        k_placement: int = 100,
         padding_mask: bool = False,
         device: Union[str, int, torch.device] = "cpu",
     ) -> None:
@@ -94,6 +96,8 @@ class ActorHead(nn.Module):
         self.padding_mask = padding_mask
         self.device = device
         self.preprocess = preprocess_net
+        self.num_bins = num_bins
+        self.k_placement = k_placement
         self.layer_1 = nn.Sequential(
             init_(nn.Linear(embed_size, embed_size)),
             nn.LeakyReLU(),
@@ -102,6 +106,8 @@ class ActorHead(nn.Module):
             init_(nn.Linear(embed_size, embed_size)),
             nn.LeakyReLU(),
         )
+        # Đầu ra là num_bins * k_placement
+        self.output_layer = nn.Linear(embed_size, k_placement)
 
     def forward(
         self,
@@ -210,7 +216,7 @@ class ShareNet(nn.Module):
         dropout: float = 0,
         device: Union[str, int, torch.device] = "cpu",
         place_gen: str = "EMS",
-        num_bins: int = 3, 
+        num_bins: int = 3,  # Thêm số thùng
     ) -> None:
         super().__init__()
         self.device = device
@@ -260,13 +266,14 @@ class ShareNet(nn.Module):
         if mask is not None and not isinstance(mask, torch.Tensor):
             mask = torch.as_tensor(mask, dtype=torch.float32, device=self.device)
 
-        # Split observations for each bin
+        # Tách observation cho từng thùng
         obs_hm, obs_next, obs_placements = obs2input(obs, self.container_size, self.place_gen, self.k_buffer, self.num_bins, self.k_placement)
       
-        # Encode item and placement information
-        item_embedding = self.item_encoder(obs_next)  # (batch_size, 2 * k_buffer * num_bins, embed_size)
+        # Mã hóa item và placement
+        item_embedding = self.item_encoder(obs_next)  # (batch_size, k_buffer * num_bins, embed_size)
         placement_embedding = self.placement_encoder(obs_placements)  # (batch_size, k_placement * num_bins, embed_size)
 
+        # Áp dụng Transformer cho từng thùng
         for layer in self.backbone:
             item_embedding, placement_embedding = layer(item_embedding, placement_embedding, mask)
 
@@ -280,18 +287,17 @@ def obs2input(
     num_bins: int = 3,
     k_placement: int = 100
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    """ 
-        convert obsversation to input of the network
-    Returns:
-        hm:         (batch, 1, L, W)
-        next_size:  (batch, buffer_size * 2, 3)
-        placements: (batch, num_bins * k_placement, 6)
-    """
+    """Chuyển đổi observation thành đầu vào cho mạng với multi-bin."""
+    if place_gen == "EMS":
+      input_size = 6
+    else:
+      input_size = 3
+
     batch_size = obs.shape[0]
     area = container_size[0] * container_size[1]
-    single_bin_size = area + 6 * buffer_size + 6 * k_placement  
-
-    # Split observation for each bin
+    single_bin_size = area + 6 * buffer_size + input_size * k_placement  # Giả sử k_placement=100
+    # Tách observation cho từng thùng
+    # print(obs.shape, single_bin_size, area, buffer_size, k_placement)
     hm_list = []
     next_size_list = []
     placements_list = []
@@ -304,8 +310,8 @@ def obs2input(
         end_placements = start_idx + single_bin_size
 
         hm = obs[:, start_idx:end_hm].reshape(batch_size, -1, container_size[0], container_size[1])
-        next_size = obs[:, end_hm:end_next].reshape(batch_size, -1, 3)  
-        placements = obs[:, end_next:end_placements].reshape(batch_size, -1, 6)
+        next_size = obs[:, end_hm:end_next].reshape(batch_size, -1, 3)  # 2 orientations per item
+        placements = obs[:, end_next:end_placements].reshape(batch_size, -1, input_size)
 
         # print('end_hm:',end_hm)
         # print('end_next:',end_next)
@@ -320,7 +326,7 @@ def obs2input(
           next_size_list.append(next_size)
         placements_list.append(placements)
 
-    # Concatenate all components
+    # Gộp lại
     torch.set_printoptions(threshold=float('inf'))
     hm = torch.cat(hm_list, dim=1)  # (batch_size, num_bins, L, W)
     next_size = torch.cat(next_size_list, dim=1)  # (batch_size, buffer_size * 2, 3)
