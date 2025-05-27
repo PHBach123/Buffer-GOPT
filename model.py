@@ -292,7 +292,6 @@ def obs2input(
       input_size = 6
     else:
       input_size = 3
-    print(place_gen)
 
     batch_size = obs.shape[0]
     area = container_size[0] * container_size[1]
