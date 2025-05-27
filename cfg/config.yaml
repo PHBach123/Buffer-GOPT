@@ -6,7 +6,7 @@ log_interval: 10               # How often to print training logs
 
 env:
   id: OnlinePack-v2            # env name OnlinePack-v1, PCT-v0
-  scheme: EMS                  # the scheme of generating candidate map: heightmap, EP, FC
+  scheme: heightmap                 # the scheme of generating candidate map: heightmap, EP, FC
   rot: True
   box_type: random              # random, cut
   container_size: [10, 10, 10]
