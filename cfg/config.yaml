@@ -20,7 +20,7 @@ train:
   clip_param: 0.3
   num_processes: 128    # the number of subprogresses, if debug, set to 1
   num_steps: 5
-  epoch: 1000
+  epoch: 100
   last_epoch: 200 
   batch_size: 128  
   step_per_epoch: 40000        # 2**15
