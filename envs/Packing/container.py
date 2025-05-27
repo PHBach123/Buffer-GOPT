@@ -357,7 +357,7 @@ class Container(object):
             return True
         return False
 
-    def candidate_from_heightmap(self, next_box, max_n) -> list:
+    def candidate_from_heightmap(self, buffer_list, max_n) -> list:
         """
         get the x and y coordinates of candidates
         Args:
@@ -415,30 +415,38 @@ class Container(object):
         candidate_y = list(set(candidate_y))
 
         # get corner_list
-        corner_list = list(itertools.product(candidate_x, candidate_y))
-        candidates = [] 
+        # corner_list = list(itertools.product(candidate_x, candidate_y))
+        corner_list = corner_xy_list  
+        candidates = [None] * len(corner_list)
+        buffer_size = len(buffer_list) 
+        mask = np.zeros((2*buffer_size, max_n), dtype=np.int8)
 
-        for xy in corner_list:
-            z = self.check_box(next_box, xy)
-            if z > -1:
-                # candidates.append([xy[0], xy[1], z, 0])
-                candidates.append([xy[0], xy[1], z, xy[0] + next_box[0], xy[1] + next_box[1], z + next_box[2]])
-        
-        if self.can_rotate:
-            rotated_box = [next_box[1], next_box[0], next_box[2]]
-            for xy in corner_list:
+        for i, next_box in enumerate(buffer_list):
+            for id, xy in enumerate(corner_list):
+              z = self.check_box(next_box, xy)
+              if z > -1:
+                mask[0 + i*2, id] = 1
+              else:
+                mask[0 + i*2, id] = 0
+              if i == 0 or z > -1:
+                candidates[id] = [xy[0], xy[1], z]
+              # candidates.append([xy[0], xy[1], z])#, xy[0] + next_box[0], xy[1] + next_box[1], z + next_box[2]])
+              if self.can_rotate:
+                rotated_box = [next_box[1], next_box[0], next_box[2]]
                 z = self.check_box(rotated_box, xy)
                 if z > -1:
-                    # candidates.append([xy[0], xy[1], z, 1])
-                    candidates.append([xy[0], xy[1], z, xy[0] + rotated_box[0], xy[1] + rotated_box[1], z + rotated_box[2]])
+                  mask[1 + i*2, id] = 1
+                else:
+                  mask[1 + i*2, id] = 0
+                if i == 0 or z > -1:
+                  candidates[id] = [xy[0], xy[1], z]
+                # candidates.append([xy[0], xy[1], z])#, xy[0] + rotated_box[0], xy[1] + rotated_box[1], z + rotated_box[2]])
 
-        # sort by z, y coordinate, then x
-        candidates.sort(key=lambda x: [x[2], x[1], x[0]])
-
+        candidates = [c for c in candidates if c is not None]        
         if len(candidates) > max_n:
-            candidates = candidates[:max_n]
+          candidates = candidates[:max_n]  
         self.candidates = candidates
-        return np.array(candidates)
+        return np.array(candidates), mask
 
     def candidate_from_EP(self, next_box, max_n) -> list:
         """
