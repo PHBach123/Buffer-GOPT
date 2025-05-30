@@ -106,8 +106,6 @@ class ActorHead(nn.Module):
             init_(nn.Linear(embed_size, embed_size)),
             nn.LeakyReLU(),
         )
-        # Đầu ra là num_bins * k_placement
-        self.output_layer = nn.Linear(embed_size, k_placement)
 
     def forward(
         self,
