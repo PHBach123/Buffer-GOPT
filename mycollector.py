@@ -236,12 +236,14 @@ class PackCollector(Collector):
             len_mean, len_std = lens.mean(), lens.std()
             ratio_mean, ratio_std = ratios.mean(), ratios.std()
             num_mean, num_std = nums.mean(), nums.std()
-            # total_ratio_mean, total_ratio_std = total_ratios.mean(), total_ratios.std()
         else:
             rews, lens, idxs = np.array([]), np.array([], int), np.array([], int)
             bin_idxs, total_ratios = np.array([]), np.array([])
             rew_mean = rew_std = len_mean = len_std = 0
-            # total_ratio_mean = total_ratio_std = 0
+            ratios = np.array([])       
+            ratio_mean = ratio_std = 0  
+            nums = np.array([])         
+            num_mean = num_std = 0      
 
         return {
             "n/ep": episode_count,
