@@ -35,29 +35,39 @@ class PackCollector(Collector):
         no_grad: bool = True,
         gym_reset_kwargs: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        """Thu thập một số lượng bước hoặc episode xác định.
+        """Collect a specified number of step or episode.
 
-        :param int n_step: số bước cần thu thập.
-        :param int n_episode: số episode cần thu thập.
-        :param bool random: sử dụng chính sách ngẫu nhiên hay không.
-        :param float render: thời gian nghỉ giữa các khung hình khi render.
-        :param bool no_grad: có giữ gradient trong policy.forward() hay không.
-        :param gym_reset_kwargs: tham số bổ sung cho hàm reset của môi trường.
+        To ensure unbiased sampling result with n_episode option, this function will
+        first collect ``n_episode - env_num`` episodes, then for the last ``env_num``
+        episodes, they will be collected evenly from each env.
 
-        :return: Một dict chứa các khóa sau:
-            - "n/ep": số episode thu thập.
-            - "n/st": số bước thu thập.
-            - "rews": mảng phần thưởng episode.
-            - "lens": mảng độ dài episode.
-            - "idxs": mảng chỉ số bắt đầu episode trong buffer.
-            - "rew": trung bình phần thưởng episode.
-            - "len": trung bình độ dài episode.
-            - "rew_std": độ lệch chuẩn phần thưởng.
-            - "len_std": độ lệch chuẩn độ dài.
-            - "bin_idxs": mảng chỉ số thùng được sử dụng.
-            - "total_ratios": mảng tỷ lệ sử dụng không gian trung bình.
-            - "total_ratio": trung bình tỷ lệ sử dụng không gian.
-            - "total_ratio_std": độ lệch chuẩn tỷ lệ sử dụng không gian.
+        :param int n_step: how many steps you want to collect.
+        :param int n_episode: how many episodes you want to collect.
+        :param bool random: whether to use random policy for collecting data. Default
+            to False. 
+        :param float render: the sleep time between rendering consecutive frames.
+            Default to None (no rendering).
+        :param bool no_grad: whether to retain gradient in policy.forward(). Default to
+            True (no gradient retaining).
+        :param gym_reset_kwargs: extra keyword arguments to pass into the environment's
+            reset function. Defaults to None (extra keyword arguments)
+
+        .. note::
+
+            One and only one collection number specification is permitted, either
+            ``n_step`` or ``n_episode``.
+
+        :return: A dict including the following keys
+
+            * ``n/ep`` collected number of episodes.
+            * ``n/st`` collected number of steps.
+            * ``rews`` array of episode reward over collected episodes.
+            * ``lens`` array of episode length over collected episodes.
+            * ``idxs`` array of episode start index in buffer over collected episodes.
+            * ``rew`` mean of episodic rewards.
+            * ``len`` mean of episodic lengths.
+            * ``rew_std`` standard error of episodic rewards.
+            * ``len_std`` standard error of episodic lengths.
         """
         assert not self.env.is_async, "Please use AsyncCollector if using async venv."
         if n_step is not None:
@@ -91,13 +101,15 @@ class PackCollector(Collector):
         episode_start_indices = []
         episode_bin_idxs = []
         episode_total_ratios = []
+        episode_ratios = []
+        episode_nums = []
 
         while True:
             assert len(self.data) == len(ready_env_ids)
-            # Lưu trữ trạng thái ẩn nếu có
+            # restore the state: if the last state is None, it won't store
             last_state = self.data.policy.pop("hidden_state", None)
 
-            # Lấy hành động tiếp theo
+            # get the next action
             if random:
                 act_sample = [self._action_space.sample() for _ in ready_env_ids]
                 act_sample = self.policy.map_action_inverse(act_sample)
@@ -153,12 +165,12 @@ class PackCollector(Collector):
                 if render > 0 and not np.isclose(render, 0):
                     time.sleep(render)
 
-            # Thêm dữ liệu vào buffer
+            # add data into the buffer
             ptr, ep_rew, ep_len, ep_idx = self.buffer.add(
                 self.data, buffer_ids=ready_env_ids
             )
 
-            # Thu thập thống kê
+            # collect statistics
             step_count += len(ready_env_ids)
 
             if np.any(done):
@@ -169,16 +181,16 @@ class PackCollector(Collector):
                 episode_rews.append(ep_rew[env_ind_local])
                 episode_start_indices.append(ep_idx[env_ind_local])
                 
-                # Thu thập thông tin bổ sung từ multi-bin packing
-                # episode_bin_idxs.append([info["bin_idx"][i] for i in env_ind_local])
-                # episode_total_ratios.append([info["total_ratio"][i] for i in env_ind_local])
+                episode_ratios.append(self.data.info['ratio'][env_ind_local])
+                episode_nums.append(self.data.info['counter'][env_ind_local])
 
-                # Reset môi trường đã hoàn thành
+                # finished episodes, we have to reset finished envs first.
                 self._reset_env_with_ids(env_ind_local, env_ind_global, gym_reset_kwargs)
                 for i in env_ind_local:
                     self._reset_state(i)
 
-                # Loại bỏ các env dư thừa nếu dùng n_episode
+                # remove surplus env id from ready_env_ids
+                # to avoid bias in selecting environments
                 if n_episode:
                     surplus_env_num = len(ready_env_ids) - (n_episode - episode_count)
                     if surplus_env_num > 0:
@@ -193,7 +205,7 @@ class PackCollector(Collector):
                     (n_episode and episode_count >= n_episode):
                 break
 
-        # Cập nhật thống kê tổng quát
+        # generate statistics
         self.collect_step += step_count
         self.collect_episode += episode_count
         self.collect_time += max(time.time() - start_time, 1e-9)
@@ -214,14 +226,16 @@ class PackCollector(Collector):
 
         # Tính toán kết quả trả về
         if episode_count > 0:
-            rews, lens, idxs= list(
+            rews, lens, idxs, ratios, nums = list(
                 map(
                     np.concatenate,
-                    [episode_rews, episode_lens, episode_start_indices]
+                    [episode_rews, episode_lens, episode_start_indices, episode_ratios, episode_nums]
                 )
             )
             rew_mean, rew_std = rews.mean(), rews.std()
             len_mean, len_std = lens.mean(), lens.std()
+            ratio_mean, ratio_std = ratios.mean(), ratios.std()
+            num_mean, num_std = nums.mean(), nums.std()
             # total_ratio_mean, total_ratio_std = total_ratios.mean(), total_ratios.std()
         else:
             rews, lens, idxs = np.array([]), np.array([], int), np.array([], int)
@@ -239,8 +253,10 @@ class PackCollector(Collector):
             "len": len_mean,
             "rew_std": rew_std,
             "len_std": len_std,
-            # "bin_idxs": bin_idxs,
-            # "total_ratios": total_ratios,
-            # "total_ratio": total_ratio_mean,
-            # "total_ratio_std": total_ratio_std,
+            "ratios": ratios,
+            "ratio": ratio_mean,
+            "ratio_std": ratio_std,
+            "nums": nums,
+            "num": num_mean,
+            "num_std": num_std,
         }
