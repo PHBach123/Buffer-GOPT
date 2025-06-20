@@ -9,8 +9,8 @@
 git clone https://github.com/PHBach123/Buffer-GOPT.git
 cd Buffer-GOPT
 
-conda create -n GOPT python=3.9
-conda activate GOPT
+conda create -n Buffer-GOPT python=3.9
+conda activate Buffer-GOPT
 
 # install pytorch
 conda install pytorch==2.1.0 torchvision==0.16.0 torchaudio==2.1.0 pytorch-cuda=12.1 -c pytorch -c nvidia
