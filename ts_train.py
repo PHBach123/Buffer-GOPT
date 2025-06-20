@@ -258,7 +258,7 @@ def train(args):
 
     final_save_fn(policy)
     pprint.pprint(f'Finished training! \n{result}')
-    # watch(result)
+    watch(result)
 
 if __name__ == '__main__':
     registration_envs()
