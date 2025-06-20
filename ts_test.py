@@ -99,11 +99,11 @@ def test(args):
               f"\t| Reward: {result['rews'][i]:.4f} ")
     print('All cases have been done!')
     print('----------------------------------------------')
-    # print(f"Average space utilization (total_ratio): {result['total_ratio']:.4f}")
+    print(f"Average space utilization (ratio): {result['ratio']:.4f}")
+    print(f"Average num bin: {result['num']:.4f}")
     print(f"Reward: {result['rew']:.4f}")
     print(f"Average reward: {result['rew']/args.env.num_bins:.4f}")
-    print("Standard variance: %.4f"%(result['rew_std']))
-    # print(f"Standard deviation of total_ratio: {result['total_ratio_std']:.4f}")
+    print(f"Standard deviation of ratio: {result['ratio_std']:.4f}")
 
 if __name__ == '__main__':
     registration_envs()
@@ -115,7 +115,7 @@ if __name__ == '__main__':
     if args.render:
         args.test_episode = 1  
     else:
-        args.test_episode = 1
+        args.test_episode = 10
 
 
     test(args)
