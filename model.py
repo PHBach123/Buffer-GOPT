@@ -106,6 +106,7 @@ class ActorHead(nn.Module):
             init_(nn.Linear(embed_size, embed_size)),
             nn.LeakyReLU(),
         )
+        
 
     def forward(
         self,
@@ -144,7 +145,7 @@ class CriticHead(nn.Module):
         k_placement: int,
         preprocess_net: nn.Module,
         embed_size: int,
-        num_bins: int = 3,  # Thêm số thùng
+        num_bins: int = 3,  
         padding_mask: bool = False,
         device: Union[str, int, torch.device] = "cpu",
     ) -> None:
@@ -214,7 +215,7 @@ class ShareNet(nn.Module):
         dropout: float = 0,
         device: Union[str, int, torch.device] = "cpu",
         place_gen: str = "EMS",
-        num_bins: int = 3,  # Thêm số thùng
+        num_bins: int = 3,  
     ) -> None:
         super().__init__()
         self.device = device
@@ -264,14 +265,13 @@ class ShareNet(nn.Module):
         if mask is not None and not isinstance(mask, torch.Tensor):
             mask = torch.as_tensor(mask, dtype=torch.float32, device=self.device)
 
-        # Tách observation cho từng thùng
+        # Split observations for each bin
         obs_hm, obs_next, obs_placements = obs2input(obs, self.container_size, self.place_gen, self.k_buffer, self.num_bins, self.k_placement)
       
-        # Mã hóa item và placement
+        # Encode item and placement information
         item_embedding = self.item_encoder(obs_next)  # (batch_size, k_buffer * num_bins, embed_size)
         placement_embedding = self.placement_encoder(obs_placements)  # (batch_size, k_placement * num_bins, embed_size)
 
-        # Áp dụng Transformer cho từng thùng
         for layer in self.backbone:
             item_embedding, placement_embedding = layer(item_embedding, placement_embedding, mask)
 
@@ -285,7 +285,13 @@ def obs2input(
     num_bins: int = 3,
     k_placement: int = 100
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    """Chuyển đổi observation thành đầu vào cho mạng với multi-bin."""
+    """ 
+        convert obsversation to input of the network
+    Returns:
+        hm:         (batch, 1, L, W)
+        next_size:  (batch, buffer_size * 2, 3)
+        placements: (batch, num_bins * k_placement, 6)
+    """
     if place_gen == "EMS":
       input_size = 6
     else:
@@ -293,14 +299,12 @@ def obs2input(
 
     batch_size = obs.shape[0]
     area = container_size[0] * container_size[1]
-    single_bin_size = area + 6 * buffer_size + input_size * k_placement  # Giả sử k_placement=100
-    # Tách observation cho từng thùng
-    # print(obs.shape, single_bin_size, area, buffer_size, k_placement)
+    single_bin_size = area + 6 * buffer_size + input_size * k_placement  
+    # Split observation for each bin
+
     hm_list = []
     next_size_list = []
     placements_list = []
-    # print('obs:',obs.shape)
-    # print('single_bin_size:',single_bin_size)   
     for i in range(num_bins):
         start_idx = i * single_bin_size
         end_hm = start_idx + area
@@ -311,30 +315,16 @@ def obs2input(
         next_size = obs[:, end_hm:end_next].reshape(batch_size, -1, 3)  # 2 orientations per item
         placements = obs[:, end_next:end_placements].reshape(batch_size, -1, input_size)
 
-        # print('end_hm:',end_hm)
-        # print('end_next:',end_next)
-        # print('end_placements:',end_placements)
-
-        # print('hm:',hm)
-        # print('next_size:',next_size)   
-        # print('placements:',placements)
-        # print('--------------------------------------------')
         hm_list.append(hm)
         if i==0:
           next_size_list.append(next_size)
         placements_list.append(placements)
 
-    # Gộp lại
+    # Concatenate all components
     torch.set_printoptions(threshold=float('inf'))
     hm = torch.cat(hm_list, dim=1)  # (batch_size, num_bins, L, W)
     next_size = torch.cat(next_size_list, dim=1)  # (batch_size, buffer_size * 2, 3)
     placements = torch.cat(placements_list, dim=1)  # (batch_size, num_bins * k_placement, 6 hoặc 3)
-    # print('hm:',hm)
-    # print('next_size:',next_size)
-    # print('placements:',placements)
-    # print('hm:',hm.shape)
-    # print('next_size:',next_size.shape)
-    # print('placements:',placements.shape)
     return hm, next_size, placements
 
 def init(module, weight_init, bias_init, gain=1):
