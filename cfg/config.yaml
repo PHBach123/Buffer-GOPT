@@ -5,8 +5,8 @@ cuda_deterministic: True
 log_interval: 10               # How often to print training logs
 
 env:
-  id: OnlinePack-v2            # env name OnlinePack-v1, PCT-v0
-  scheme: heightmap                 # the scheme of generating candidate map: heightmap, EP, FC
+  id: OnlinePack-v2            # env name OnlinePack-v2, OnlinePack-v1
+  scheme: heightmap                 # the scheme of generating candidate map: heightmap, EMS
   rot: True
   box_type: random              # random, cut
   container_size: [10, 10, 10]
